@@ -1,0 +1,80 @@
+name: Build Win-Box (内嵌播放版)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: npm install -g pnpm@9
+
+      - name: Install deps
+        run: pnpm install --no-frozen-lockfile
+        env:
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+
+      - name: Build main + renderer
+        run: pnpm run build
+
+      # ★ 二进制大件（mpv/jvm/ffmpeg，均在 .gitignore，不入源码库）
+      #   从 fork 仓库的 seed release 下载；用 hash 校验完整性。
+      - name: Fetch binary seed (mpv/jvm/ffmpeg)
+        shell: bash
+        run: |
+          set -e
+          mkdir -p seed && cd seed
+          for a in mpv jvm ffmpeg; do
+            echo "download $a.7z"
+            curl -sL --retry 3 -o $a.7z \
+              "https://github.com/jwqsir2-lang/Win-tvbox/releases/download/seed/$a.7z"
+            test -s $a.7z || { echo "FAIL: $a.7z empty/missing"; exit 1; }
+          done
+      - name: Unpack binaries into resources/
+        shell: bash
+        run: |
+          set -e
+          7z x seed/mpv.7z -oresources -y >/dev/null
+          7z x seed/jvm.7z -oresources -y >/dev/null
+          7z x seed/ffmpeg.7z -oresources -y >/dev/null
+          test -f resources/mpv/mpv.exe
+          test -f resources/jvm/jre/bin/java.exe || test -d resources/jvm
+          test -f resources/ffmpeg/ffmpeg.exe
+          echo "binaries OK"
+
+      - name: Package (electron-builder nsis)
+        run: pnpm run dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # CI 环境 electron 二进制已在 install 步骤经镜像装好
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+
+      - name: List artifacts
+        shell: bash
+        run: ls -la release1.21.8/ || true
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Win-Box-installer
+          path: release1.21.8/*.exe
+          if-no-files-found: warn
+      - name: Upload portable dir
+        uses: actions/upload-artifact@v4
+        with:
+          name: Win-Box-portable
+          path: |
+            release1.21.8/win-unpacked/**
+            !release1.21.8/win-unpacked/**/*.pak
+          if-no-files-found: warn
