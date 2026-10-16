@@ -64,7 +64,25 @@ jobs:
         shell: bash
         run: ls -la release1.21.8/ || true
 
-      - name: Upload installer
+      - name: Upload to Release（网页可直接下载）
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          REL=build-latest
+          EXE=$(ls release1.21.8/*.exe | head -1)
+          echo "installer: $EXE"
+          # release 不存在则建（指向 main，标记预发布，不抢正式 release）
+          gh release create "$REL" "$EXE" \
+            --title "Win-Box 内嵌播放版" \
+            --notes "自动构建：当前窗口内嵌播放 + 旧版内置源。
+          从本仓库 main 分支构建，种子二进制来自 seed release。
+          下载 exe 直接安装。" \
+            --prerelease --target main || \
+          gh release upload "$REL" "$EXE" --clobber
+
+      - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: Win-Box-installer
