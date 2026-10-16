@@ -6,6 +6,7 @@
 //   onMiniToggle —— 切换回调。mini 时隐藏 最大化(还原)，小窗口按钮变「恢复原窗口」。
 //   ★ 2026-10-08（用户要求）：showPin + pinTop + onPinToggle —— 「置顶」按钮挪到**最小化旁**
 //   （原在播放器下方控制条，用户反馈下方功能区太拥挤；状态由 PlayerPage 统一持有）。
+//   ★ 2026-10-17（内嵌播放）：showBack + onBack —— 标题栏最左「返回」按钮（hash 路由回详情）。
 import { useEffect, useState } from 'react';
 import { client } from '../api/client';
 
@@ -19,6 +20,9 @@ interface TitleBarProps {
   /** 当前置顶态（由外层持有，TitleBar 只渲染） */
   pinTop?: boolean;
   onPinToggle?: () => void;
+  /** ★ 2026-10-17：嵌入播放用 —— 标题栏最左显示「返回」按钮（hash 路由回详情页，不关窗口） */
+  showBack?: boolean;
+  onBack?: () => void;
   /**
    * ★ 2026-09-29：`mac` = macOS 交通灯变体（仅供 Apple 皮肤的全宽工具栏使用）——
    *   渲染**左置红/黄/绿圆点**（关闭/最小化/最大化，符号悬停显现），标题与右侧窗口按钮不再渲染
@@ -27,7 +31,7 @@ interface TitleBarProps {
   variant?: 'win' | 'mac';
 }
 
-export default function TitleBar({ title = 'Win-Box', showMini = false, mini = false, onMiniToggle, showPin = false, pinTop = false, onPinToggle, variant = 'win' }: TitleBarProps) {
+export default function TitleBar({ title = 'Win-Box', showMini = false, mini = false, onMiniToggle, showPin = false, pinTop = false, onPinToggle, showBack = false, onBack, variant = 'win' }: TitleBarProps) {
   const [max, setMax] = useState(false);
   const [icon, setIcon] = useState('');
   useEffect(() => {
@@ -69,6 +73,20 @@ export default function TitleBar({ title = 'Win-Box', showMini = false, mini = f
       onDoubleClick={() => void toggleMax()}
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
+      {/* ★ 2026-10-17（内嵌播放）：标题最左「返回」按钮 —— 回详情页（hash 路由），不关窗口 */}
+      {showBack && (
+        <button
+          className="tb-btn tb-back"
+          title="返回详情"
+          aria-label="返回详情"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          onClick={() => onBack?.()}
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
       <div className="tb-title" title={title}>
         {icon ? <img className="tb-ico" src={icon} alt="" draggable={false} /> : <span className="tb-dot" />}
         <span className="tb-text">{title}</span>

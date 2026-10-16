@@ -7,6 +7,79 @@ import { join } from 'node:path';
 import { applyWindowCorner } from '../util/windowCorner';
 import { applyEpisodeSwitch, type PlayerEpisodeSwitch } from '../../shared/playerEpisode';
 
+/**
+ * ★★★ 2026-10-17（用户要求「改成和旧版一样的当前窗口内嵌播放」）：嵌入播放模式 ★★★
+ * 不再开独立浮动窗口；改为在**发起播放的窗口**（主窗口或详情窗口）内导航到 `#/player`，
+ * 复用 App.tsx 已有的 `isPlayerWin === loc.pathname === '/player'` 分支渲染纯播放器外壳。
+ * - `embedHost`：当前承载内嵌播放的窗口（未嵌入时为 null）
+ * - isEmbedOpen()：嵌入播放进行中
+ * - 投递目标统一走 deliverTarget()：嵌入模式发给 embedHost，否则退回原 playerWin 逻辑
+ * 嵌入模式约定：强制 HTML5 内核（hls.js，与旧版体验一致）、无 mini 浮动小窗、无置顶。
+ */
+let embedHost: BrowserWindow | null = null;
+
+/** 嵌入模式返回路由（详情页），供渲染层「返回」按钮回到详情而非关窗 */
+let pendingBackRoute: string | null = null;
+
+/** 嵌入播放是否进行中 */
+export function isEmbedOpen(): boolean {
+  return !!embedHost && !embedHost.isDestroyed();
+}
+
+/** 嵌入承载窗口（ipc/index.ts 判定 PLAYER_OPEN/PLAYER_CLOSE 走向用） */
+export function embedHostWindow(): BrowserWindow | null {
+  return embedHost && !embedHost.isDestroyed() ? embedHost : null;
+}
+
+/** 取嵌入模式返回路由（详情页）——渲染层「返回」按钮用它回到详情而非关窗 */
+export function embedBackRoute(): string | null {
+  return pendingBackRoute;
+}
+
+/** 关闭嵌入播放：卸掉引用即可（窗口本身是主/详情窗口，由用户正常关闭） */
+export function closeEmbedPlayer(): void {
+  embedHost = null;
+}
+
+/**
+ * 在发起窗口内嵌播放：导航到 `#/player`，随后按「就绪重发」机制投递 init。
+ * 首次进入前若该窗口正停在详情页，先把详情路由记进历史栈，渲染层返回时可回到详情。
+ */
+export function openEmbeddedPlayer(host: BrowserWindow, init: PlayerInit, backRoute?: string): void {
+  embedHost = host;
+  // 盖章缓存（与独立窗口同款：加载完成前又来新 init 时只发最新那份）
+  stampInit(init);
+  if (backRoute) pendingBackRoute = backRoute;
+  if (host.isDestroyed()) { embedHost = null; return; }
+  // 复用渲染层已有的 WIN_NAVIGATE 监听（App.tsx 的 onNavigate → nav(route)）
+  host.webContents.send('win:navigate', '/player');
+  // 兜底重发：渲染层 PlayerPage 挂载后会主动调 PLAYER_READY；
+  // 但若渲染层因缓存已在 /player（二次播放），它不会再触发挂载 → 80ms 后补发一次最新 init。
+  setTimeout(() => { deliverPendingInit(); }, 120).unref();
+}
+
+/** 内嵌切集：复用 PLAYER_SWITCH_EP 链路，投递目标自动指向 embedHost */
+export function embedSwitchEpisode(request: number | PlayerEpisodeSwitch): boolean {
+  if (!isEmbedOpen()) return false;
+  if (typeof request === 'number') {
+    embedHost!.webContents.send('player:switchEp', request);
+    return true;
+  }
+  if (!pendingInit) return false;
+  const next = applyEpisodeSwitch(pendingInit, request);
+  if (!next) return false;
+  embedHost!.webContents.send('player:init', stampInit(next));
+  return true;
+}
+
+/** 把缓存的最新 init 投递给当前播放目标（嵌入窗口或独立窗口） */
+function deliverPendingInit(): void {
+  if (!pendingInit) return;
+  if (isEmbedOpen()) { embedHost!.webContents.send('player:init', pendingInit); return; }
+  const w = playerWin;
+  if (w && !w.isDestroyed()) w.webContents.send('player:init', pendingInit);
+}
+
 // 与渲染层 PlayerPage 约定的初始播放数据（可序列化）
 export interface PlayerInit {
   key: string; // 播放源 key
@@ -332,10 +405,12 @@ export function openPlayerWindow(init: PlayerInit): void {
     }
   });
   // 页面加载后再注入初始数据，确保渲染层订阅已就绪
+  // ★ 2026-10-17：hash 带 spw=1 标记本窗口是「独立播放器窗口」——渲染层 PlayerPage 据此区分
+  //   独立窗口（允许 mpv 内核/mini 浮动小窗/置顶）与嵌入播放（强制 HTML5、无浮动、返回详情）
   if (isDev()) {
-    playerWin.loadURL('http://localhost:5173/#/player');
+    playerWin.loadURL('http://localhost:5173/#/player?spw=1');
   } else {
-    playerWin.loadFile(join(__dirname, 'renderer', 'index.html'), { hash: '/player' });
+    playerWin.loadFile(join(__dirname, 'renderer', 'index.html'), { hash: '/player?spw=1' });
   }
   playerWin.webContents.on('did-finish-load', () => {
     playerWin?.webContents.send('player:init', pendingInit ?? payload);
@@ -364,6 +439,8 @@ export function playerSwitchEpisode(request: number | PlayerEpisodeSwitch): bool
  *   改为**对方就绪再发**：重发同一份（序号相同）会被渲染层的 `acceptInitSeq` 判重忽略，不会重复应用。
  */
 export function playerResendInit(): void {
+  // ★ 2026-10-17：嵌入模式下，重发目标 = 嵌入承载窗口
+  if (isEmbedOpen()) { deliverPendingInit(); return; }
   const w = playerWin;
   if (!w || w.isDestroyed() || !pendingInit) return;
   w.webContents.send('player:init', pendingInit);

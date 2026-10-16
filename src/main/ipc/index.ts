@@ -35,7 +35,7 @@ import type { UpdateProgress } from '../../shared/update';
 import type { UpdateService } from '../update/UpdateService';
 import type { ExploreQuery } from '../../shared/discover';
 // 独立播放器窗口
-import { openPlayerWindow, playerSwitchEpisode, isPlayerOpen, closePlayerWindow, playerSetMini, playerIsMini, playerWindow, playerResendInit, onPlayerWindowClosed, isPlayerWindow, playerSetFullscreen, playerIsFullscreen, playerSetResizable } from '../player/PlayerWindow';
+import { openPlayerWindow, playerSwitchEpisode, isPlayerOpen, closePlayerWindow, playerSetMini, playerIsMini, playerWindow, playerResendInit, onPlayerWindowClosed, isPlayerWindow, playerSetFullscreen, playerIsFullscreen, playerSetResizable, openEmbeddedPlayer, isEmbedOpen, embedSwitchEpisode, closeEmbedPlayer } from '../player/PlayerWindow';
 // ★ 2026-10-08 MPV 高兼容播放内核（独立播放器窗口内嵌 --wid）
 import { MpvController } from '../player/MpvController';
 // ★ 2026-10-16 插件系统（M1）：宿主聚合（登记/安装/启停/超分着色器解析）
@@ -559,15 +559,23 @@ export function registerIpc(host: SpiderHost, dav: DavService, dlna: DlnaService
     return r;
   }, log);
 
-  // ---- 独立播放器窗口 ----
-  registerHandler(IPC.PLAYER_OPEN, (_e: any, init: any) => {
+  // ---- 播放器（★ 2026-10-17：默认嵌入当前窗口播放 = 旧版体验；网页源 fm.play 仍开独立窗口，其在主进程内部直调 openPlayerWindow）----
+  registerHandler(IPC.PLAYER_OPEN, (e: any, init: any) => {
+    // ★ 嵌入模式：在发起窗口内导航到 #/player，不开新窗口、不透明、不浮动
+    const host = winOf(e);
+    if (host && !host.isDestroyed()) {
+      openEmbeddedPlayer(host, init);
+      return { ok: true };
+    }
     openPlayerWindow(init);
     return { ok: true };
   }, log);
   registerHandler(IPC.PLAYER_SWITCH_EP, (_e: any, request: number | import('../../shared/playerEpisode').PlayerEpisodeSwitch) => {
+    // ★ 2026-10-17：嵌入模式优先走内嵌切集；独立窗口仍走原逻辑
+    if (isEmbedOpen()) return { switched: embedSwitchEpisode(request) };
     return { switched: playerSwitchEpisode(request) };
   }, log);
-  registerHandler(IPC.PLAYER_IS_OPEN, () => ({ open: isPlayerOpen() }), log);
+  registerHandler(IPC.PLAYER_IS_OPEN, () => ({ open: isPlayerOpen() || isEmbedOpen() }), log);
   registerHandler(IPC.PLAYER_GET_INIT, () => ({ open: isPlayerOpen() }), log);
   /** ★ 2026-09-30：渲染层订阅就绪 → 重发最新 init（修新窗口「首推早于订阅」的竞态，见 PlayerWindow.playerResendInit） */
   registerHandler(IPC.PLAYER_READY, () => {
@@ -583,6 +591,9 @@ export function registerIpc(host: SpiderHost, dav: DavService, dlna: DlnaService
   registerHandler(IPC.PLAYER_IS_FULLSCREEN, () => ({ fullscreen: playerIsFullscreen() }), log);
   registerHandler(IPC.PLAYER_SET_RESIZABLE, (_e: any, resizable: boolean) => ({ resizable: playerSetResizable(!!resizable) }), log);
   registerHandler('player:close', () => {
+    // ★ 2026-10-17：嵌入模式无独立窗口可关——播放页由发起窗口承载，
+    //   保留 closeEmbedPlayer() 仅清理主进程侧引用，窗口交给用户正常操作。
+    if (isEmbedOpen()) { closeEmbedPlayer(); return { ok: true }; }
     closePlayerWindow();
     return { ok: true };
   }, log);

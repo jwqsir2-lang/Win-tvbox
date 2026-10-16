@@ -384,7 +384,9 @@ function AppShell() {
   // ★ 2026-10-08（用户要求「详情页独立窗口」）：详情窗口复用 —— 主进程在已开的详情窗口上再点片子时
   //   发 `win:navigate`，本窗口切到新路由（不新开窗口、不整页重载，窗口位置/尺寸保留）。
   useEffect(() => {
-    if (!isDetailWindow() && !isSearchWindow()) return;
+    // ★ 2026-10-17：主窗口也要监听 win:navigate —— 内嵌播放（PLAYER_OPEN）
+    //   会把主窗口导航到 #/player（此前仅详情/搜索窗口注册，主窗口补注）。
+    //   注册本身无副作用：主进程只对承载播放的窗口发导航指令。
     const off = client.winOnNavigate((route) => nav(route));
     // 首次挂载完成后通知主进程，补发加载期间收到的最新路由。
     const timer = window.setTimeout(() => { void client.winRouteReady().catch(() => undefined); }, 0);

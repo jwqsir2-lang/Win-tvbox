@@ -43,6 +43,12 @@ export interface PlayerInitData {
 }
 
 export default function PlayerPage() {
+  // ★★★ 2026-10-17（用户要求「改成和旧版一样的当前窗口内嵌播放」）★★★
+  //   spw=1 → 独立播放器窗口（透明窗口 + mpv 内核 + mini 浮动小窗 + 置顶）；
+  //   无标记 → 嵌入播放（在主/详情窗口内）：强制 HTML5 内核（hls.js，旧版同款），
+  //   无浮动小窗、无置顶，标题栏带「返回详情」。
+  const isStandalonePlayer = new URLSearchParams(window.location.hash.replace(/^#\/player/, '').split('?')[1] || '').get('spw') === '1'
+    || new URLSearchParams(window.location.search).get('spw') === '1';
   const [init, setInit] = useState<PlayerInitData | null>(null);
   const [epIndex, setEpIndex] = useState(0);
   const [activeUrl, setActiveUrl] = useState('');
@@ -355,12 +361,16 @@ export default function PlayerPage() {
       ) : (
         <TitleBar
           title={windowTitle}
-          showMini
+          // ★ 2026-10-17：嵌入模式无浮动小窗/置顶（那是独立播放器窗口专属）；
+          //   返回按钮走 hash 路由回详情页（history.back），不关窗口。
+          showMini={isStandalonePlayer}
           mini={mini}
           onMiniToggle={() => void client.playerSetMini(!mini)}
-          showPin
+          showPin={isStandalonePlayer}
           pinTop={pinTop}
           onPinToggle={togglePinTop}
+          showBack={!isStandalonePlayer}
+          onBack={() => window.history.back()}
         />
       )}
       {/* ★ 2026-09-26：这两层改用 CSS 类（`.pwin-body` / `.pwin-stage`）——内联样式没有
@@ -404,8 +414,9 @@ export default function PlayerPage() {
               onPrev={() => goEp(epIndex - 1)}
               onNext={() => goEp(epIndex + 1)}
               mini={mini}
-              // ★ 2026-10-08（用户拍板「内置官方构建」）：MPV 高兼容内核 —— 仅本窗口（transparent）可用
-              allowMpv
+              // ★ 2026-10-08（用户拍板「内置官方构建」）：MPV 高兼容内核 —— 仅独立播放器窗口（transparent）可用
+              // ★ 2026-10-17：嵌入模式强制 HTML5（hls.js）—— 嵌入窗口非透明，mpv 无处透出，且旧版体验即 HTML5
+              allowMpv={isStandalonePlayer}
               // ★ 2026-09-30：图集源（每「集」= 一张图）/ 音乐源 → 图片浏览器 / 音乐播放器显示页码与封面
               epIndex={epIndex}
               epTotal={eps.length}

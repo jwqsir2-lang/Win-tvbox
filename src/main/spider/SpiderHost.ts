@@ -3,6 +3,7 @@ import { HttpClient } from '../net/HttpClient';
 import { request as undiciRequest } from 'undici';
 import { JsonStore } from '../store/JsonStore';
 import { UserConfigManager, subscriptionStamp, type ConfigChangeKind } from '../store/UserConfigManager';
+import { BUILTIN_SOURCES } from '../store/builtinSources';
 import { DriveStore } from '../store/DriveStore';
 import { UcTvStore } from '../store/UcTvStore';
 import { ucTvAuthorize, ucTvDeviceId, ucTvExchange, ucTvPollCode } from '../net/ucTvToken';
@@ -437,8 +438,33 @@ export class SpiderHost {
         }));
     }
     this.manager.setOnChange((snap, kind) => this.onUserConfigChange(snap, kind));
-    if (this.manager.load()) {
+    const hadPersisted = this.manager.load();
+    if (hadPersisted) {
       this.onUserConfigChange(this.manager.snapshot());
+    }
+    // ★★★ 2026-10-17（用户要求「旧版内置源加入新版」）：首次启动 / 空配置时注入 5 个采集站 ★★★
+    //   与旧版 tvbox-desktop 同款，实测可用。仅在无任何源时注入一次（之后以用户配置为准）。
+    if (!this.manager.sources().length) {
+      try {
+        for (const bean of BUILTIN_SOURCES) {
+          try {
+            this.manager.addSource({ ...bean });
+          } catch (e) {
+            this.logger.w(`内置源注入失败 ${bean.key}: ${(e as Error).message}`);
+          }
+        }
+        const after = this.manager.snapshot();
+        if (after.sources.length) {
+          // 选中第一个内置源，开箱即可直接看
+          if (!after.ui.activeSourceKey) {
+            this.manager.setActiveSource(after.sources[0].key);
+          }
+          this.logger.i(`内置源注入完成：${after.sources.map((s) => s.key).join(', ')}`);
+          this.onUserConfigChange(after);
+        }
+      } catch (e) {
+        this.logger.w(`内置源注入异常: ${(e as Error).message}`);
+      }
     }
     // ★ 2026-09-27：「该源需要网盘绑定」的运行期学习结果（见 markDriveBindNeeded）
     this.driveBindStore = new JsonStore(join(userDataDir(), 'drive-bind-learned.json'));
