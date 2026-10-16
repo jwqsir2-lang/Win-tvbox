@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write   # ★ gh release create/upload 需要写权限（默认只读会 403）
     steps:
       - name: Checkout
         uses: actions/checkout@v4
