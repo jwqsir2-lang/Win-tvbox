@@ -85,7 +85,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "license": "LICENSE.txt",
+      "license": "LICENSE",
       "artifactName": "${productName} Setup ${version}.${ext}"
     }
   }
