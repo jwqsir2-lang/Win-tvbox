@@ -1558,9 +1558,19 @@ export default function VideoPlayer(props: VideoPlayerProps) {
         hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => syncHlsAudio());
         hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, () => syncHlsAudio());
         // ★ 实时网速：分片加载完成后统计（loaded 字节 / loading 耗时）
+        //   hls.js 1.5+：FRAG_LOADED 的 data 是 { frag, part, payload, networkDetails }，
+        //   LoaderStats 在 data.frag.stats 上（不是 data.stats —— 旧 d.ts 残留会骗你）；
+        //   且 stats.loading 是 HlsProgressivePerformanceTiming（{start,end} 时间戳）不是毫秒。
+        //   旧代码两处都误用 → reportKBps 从不触发、网速永远不显示。2026-10-17 修正。
         hls.on(Hls.Events.FRAG_LOADED, (_e, d) => {
-          const s = (d as { stats?: { loading: number; loaded: number } }).stats;
-          if (s && s.loading > 0) reportKBps(s.loaded / 1024 / (s.loading / 1000));
+          const frag = (d as { frag?: { stats?: unknown } }).frag;
+          const s = (frag?.stats ?? undefined) as
+            | { loading?: { start?: number; end?: number }; loaded?: number }
+            | undefined;
+          const ms = s?.loading && s.loading.end != null && s.loading.start != null
+            ? s.loading.end - s.loading.start
+            : 0;
+          if (s && s.loaded && s.loaded > 0 && ms > 0) reportKBps(s.loaded / 1024 / (ms / 1000));
         });
         hls.on(Hls.Events.ERROR, (_e, d) => {
           if (!d.fatal) return;
@@ -2604,6 +2614,10 @@ export default function VideoPlayer(props: VideoPlayerProps) {
         <div className="vp-info">
           {playTitle.trim() && <div className="vp-info-name" title={playTitle.trim()}>{playTitle.trim()}</div>}
           <div className="vp-info-row">{fmt(cur)}/{fmt(dur)}</div>
+          {(() => {
+            const kbs = relaySpeed && relaySpeed > 0 ? relaySpeed : netSpeed && netSpeed > 0 ? netSpeed : 0;
+            return kbs > 0 ? <div className="vp-info-row">网速 {fmtNet(kbs)}</div> : null;
+          })()}
           {resText && <div className="vp-info-row">{resText}</div>}
           <div className="vp-info-row">{nowText}</div>
         </div>
