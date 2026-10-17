@@ -19,6 +19,17 @@ import { directPlayUrlError } from '../../shared/playbackResult';
 
 export { sourceAvailability, type SourceAvailability };
 
+/** ★ 2026-10-17：默认线路排序 —— 选集 URL 命中媒体直链扩展名的线路排前（详情页默认选第一条）。 */
+function preferDirectMediaFlags(d: VodDetail): VodDetail {
+  const flags = d.flags || [];
+  const episodes = d.episodes || {};
+  const direct = flags.filter((f) => (episodes[f] || []).some((e) => isDirectMediaUrl(e.url)));
+  if (direct.length && direct.length < flags.length) {
+    return { ...d, flags: [...direct, ...flags.filter((f) => !direct.includes(f))] };
+  }
+  return d;
+}
+
 /**
  * 「一页」的量级（TVBox 源常见页大小 20/24/30/40/60/90）。
  * ★ 2026-10-16（用户报「很多源，如玩偶、木偶，点播分类一页都填不满、既没有分页也不能瀑布」）：
@@ -100,15 +111,21 @@ export class SourceViewModel {
   /** 详情 */
   async detail(bean: SourceBean, ids: string[], timeoutMs = 20000): Promise<VodDetail | null> {
     const { type, api, key } = bean;
+    let d: VodDetail | null;
     if (type === 0 || type === 1 || type === 4) {
-      return this.cms.detail(api, type, key, ids, this.t(bean, timeoutMs));
-    }
-    if (type === 3) {
+      d = await this.cms.detail(api, type, key, ids, this.t(bean, timeoutMs));
+    } else if (type === 3) {
       const sp = this.factory.getCSP(bean, this.host);
       const json = await Promise.resolve(sp.detailContent(ids));
-      return this.normalizeSpiderDetail(json, key);
+      d = this.normalizeSpiderDetail(json, key);
+    } else {
+      this.throwUnsupported(bean, 'detail');
     }
-    this.throwUnsupported(bean, 'detail');
+    // ★ 2026-10-17：默认线路排序 —— 选集 URL 命中媒体扩展名（.m3u8/.mp4/…）的线路优先。
+    //   起因：ffzy 等苹果 CMS 站首条线路常是 share 网页假直链（如 /share/xxx，无扩展名），
+    //   详情页默认选第一条 → 播放器拿到网页 URL 播不了；真直链线路（ffm3u8）被排在后面。
+    //   全部线路都是非直链（蜘蛛源 episodes 是选集 ID）时保持原序，行为不变。
+    return d ? preferDirectMediaFlags(d) : d;
   }
 
   /**
@@ -506,14 +523,6 @@ export class SourceViewModel {
         flags,
         episodes,
       };
-      // ★ 2026-10-17：默认线路排序 —— 选集 URL 命中媒体扩展名（.m3u8/.mp4/…）的线路优先。
-      //   起因：ffzy 等苹果 CMS 站首条线路常是 share 网页假直链（如 /share/xxx，无扩展名），
-      //   详情页默认选第一条 → 播放器拿到网页 URL 播不了；真直链线路（ffm3u8）被排在后面。
-      //   全部线路都是非直链（蜘蛛源 episodes 是选集 ID）时保持原序，行为不变。
-      const directFlags = flags.filter((f) => episodes[f]?.some((e) => isDirectMediaUrl(e.url)));
-      if (directFlags.length && directFlags.length < flags.length) {
-        detail.flags = [...directFlags, ...flags.filter((f) => !directFlags.includes(f))];
-      }
       // ★ 2026-09-24：字段错位纠偏（如「立播」源把地区名塞进导演/演员、类型串塞进年份/地区）
       return fixDetailFields(detail);
     } catch {

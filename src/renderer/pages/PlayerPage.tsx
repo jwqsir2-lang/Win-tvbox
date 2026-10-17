@@ -363,6 +363,7 @@ export default function PlayerPage() {
           title={windowTitle}
           // ★ 2026-10-17：嵌入模式无浮动小窗/置顶（那是独立播放器窗口专属）；
           //   返回按钮走 hash 路由回详情页（history.back），不关窗口。
+          embedded={!isStandalonePlayer}
           showMini={isStandalonePlayer}
           mini={mini}
           onMiniToggle={() => void client.playerSetMini(!mini)}

@@ -292,7 +292,8 @@ function AppShell() {
               : loc.pathname.startsWith('/live') ? '直播'
                 : loc.pathname.startsWith('/config') ? '配置'
                   : loc.pathname.startsWith('/about') ? '说明'
-                    : 'Win-Box';
+                    : loc.pathname.startsWith('/player') ? '正在播放'
+                      : 'Win-Box';
   /** 工具栏返回箭头（‹）：macOS 窗口的导航回退 */
   const goBack = (): void => {
     if (window.history.length > 1) nav(-1);
@@ -378,8 +379,13 @@ function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loc.pathname]);
 
-  // 独立播放器窗口：#/player 时渲染无侧栏的播放界面（独立 BrowserWindow 使用）
-  const isPlayerWin = loc.pathname === '/player';
+  // 独立播放器窗口：#/player 且带 spw=1 标记 → 渲染无侧栏的播放界面（独立透明 BrowserWindow 使用）。
+  // ★ 2026-10-17：内嵌播放时主窗口也导航到 #/player（无 spw 标记），此时**不能**走这条裸外壳，
+  //   而要落进下方正常外壳（保留菜单/导航）——否则「内嵌」就退化成浮动窗口一样的无菜单界面。
+  const isStandalonePlayerWnd =
+    new URLSearchParams(window.location.hash.replace(/^#\/player/, '').split('?')[1] || '').get('spw') === '1'
+    || new URLSearchParams(window.location.search).get('spw') === '1';
+  const isPlayerWin = loc.pathname === '/player' && isStandalonePlayerWnd;
 
   // ★ 2026-10-08（用户要求「详情页独立窗口」）：详情窗口复用 —— 主进程在已开的详情窗口上再点片子时
   //   发 `win:navigate`，本窗口切到新路由（不新开窗口、不整页重载，窗口位置/尺寸保留）。
@@ -587,6 +593,9 @@ function AppShell() {
     // ★ 2026-10-17（用户要求）：收藏列表（增删改查）
     { path: '/favorites', el: <FavoritesPage /> },
     { path: '/detail/:key/:id', el: <DetailPage onPlay={onDetailPlay} /> },
+    // ★ 2026-10-17：内嵌播放路由 —— 主窗口导航到 #/player 时在此渲染（下面的正常外壳带菜单/导航）。
+    //   独立播放器窗口走 isPlayerWin 的裸外壳（带 spw=1 标记），不会走到这里。
+    { path: '/player', el: <PlayerPage /> },
     { path: '/live', el: <LivePage /> },
     // ★ 2026-09-29：WebDAV 存储（只读）—— 浏览自建 OpenList/AList/Nextcloud 等并播放
     { path: '/storage', el: <StoragePage /> },

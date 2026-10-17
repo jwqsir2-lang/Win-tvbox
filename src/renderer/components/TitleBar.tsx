@@ -24,6 +24,11 @@ interface TitleBarProps {
   showBack?: boolean;
   onBack?: () => void;
   /**
+   * ★ 2026-10-17：嵌入播放变体 —— 只渲染「返回 + 标题」，**不带**窗口控件（最小化/最大化/关闭）
+   *   与拖拽区（这些由承载播放的窗口外壳顶栏提供），避免内嵌时出现第二套窗口按钮。
+   */
+  embedded?: boolean;
+  /**
    * ★ 2026-09-29：`mac` = macOS 交通灯变体（仅供 Apple 皮肤的全宽工具栏使用）——
    *   渲染**左置红/黄/绿圆点**（关闭/最小化/最大化，符号悬停显现），标题与右侧窗口按钮不再渲染
    *   （标题与搜索/换源由 App 的 `.ap-toolbar` 负责；其余皮肤保持 `win` 原样，零影响）。
@@ -31,7 +36,7 @@ interface TitleBarProps {
   variant?: 'win' | 'mac';
 }
 
-export default function TitleBar({ title = 'Win-Box', showMini = false, mini = false, onMiniToggle, showPin = false, pinTop = false, onPinToggle, showBack = false, onBack, variant = 'win' }: TitleBarProps) {
+export default function TitleBar({ title = 'Win-Box', showMini = false, mini = false, onMiniToggle, showPin = false, pinTop = false, onPinToggle, showBack = false, onBack, embedded = false, variant = 'win' }: TitleBarProps) {
   const [max, setMax] = useState(false);
   const [icon, setIcon] = useState('');
   useEffect(() => {
@@ -42,6 +47,30 @@ export default function TitleBar({ title = 'Win-Box', showMini = false, mini = f
     await client.winMaximize();
     setMax(await client.winIsMaximized());
   };
+
+  if (embedded) {
+    // ★ 嵌入播放：只给「返回 + 标题」，无窗口控件、无拖拽（外壳顶栏负责窗口管理）
+    return (
+      <div className="titlebar" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        {showBack && (
+          <button
+            className="tb-btn tb-back"
+            title="返回详情"
+            aria-label="返回详情"
+            onClick={() => onBack?.()}
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
+        <div className="tb-title" title={title}>
+          {icon ? <img className="tb-ico" src={icon} alt="" draggable={false} /> : <span className="tb-dot" />}
+          <span className="tb-text">{title}</span>
+        </div>
+      </div>
+    );
+  }
 
   if (variant === 'mac') {
     return (
