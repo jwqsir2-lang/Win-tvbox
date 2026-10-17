@@ -15,8 +15,7 @@ import DiscoverPage from './pages/DiscoverPage';
 import DetailPage from './pages/DetailPage';
 import PlayerPage from './pages/PlayerPage';
 import LivePage from './pages/LivePage';
-// ★ 2026-09-29：WebDAV 存储（只读浏览/播放）
-import StoragePage from './pages/StoragePage';
+// ★ 2026-10-20（用户要求「主菜单去掉存储」）：StoragePage 及其路由已从渲染层删除（WebDAV 引擎层保留）
 import HistoryPage from './pages/HistoryPage';
 import AboutPage from './pages/AboutPage';
 // ★ 2026-10-17（用户要求）：「收藏」页（详情页收藏按钮 + 列表增删改查）
@@ -55,8 +54,7 @@ const NAV = [
   // ★ 2026-10-17（用户要求）：收藏（详见 pages/FavoritesPage.tsx）
   { to: '/favorites', label: '收藏', ico: '⭐' },
   { to: '/live', label: '直播', ico: '📡' },
-  // ★ 2026-09-29（WebDAV 存储）：把自建 OpenList/AList/Nextcloud 等当媒体库浏览播放
-  { to: '/storage', label: '存储', ico: '🗄' },
+  // ★ 2026-10-20（用户要求「主菜单去掉存储」）：存储页已从主菜单删除（WebDAV 引擎层保留）
   { to: '/config', label: '配置', ico: '⚙' },
   // 说明页（详细免责声明 + GitHub 主页）
   { to: '/about', label: '说明', ico: 'ℹ' },
@@ -101,14 +99,6 @@ const AP_ICONS: Record<string, React.ReactNode> = {
       <path d="M8 1.9v1.5M8 12.6v1.5M1.9 8h1.5M12.6 8h1.5M3.7 3.7l1.1 1.1M11.2 11.2l1.1 1.1M12.3 3.7l-1.1 1.1M4.8 11.2l-1.1 1.1" />
     </svg>
   ),
-  // 存储（WebDAV）= externaldrive（外置盘）
-  '/storage': (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="2.1" y="3.4" width="11.8" height="9.2" rx="2.2" />
-      <path d="M2.1 9.6h11.8" />
-      <path d="M5.1 11.8h1.6" />
-    </svg>
-  ),
   // 说明 = info.circle
   '/about': (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
@@ -126,7 +116,7 @@ const AP_ICONS: Record<string, React.ReactNode> = {
 
 /** Apple 皮肤侧边栏的**分组**（HIG：侧边栏最多两级、分组标签要简短） */
 const AP_GROUPS: { label: string; items: typeof NAV }[] = [
-  { label: '媒体', items: NAV.filter((n) => ['/', '/home', '/history', '/favorites', '/live', '/storage'].includes(n.to)) },
+  { label: '媒体', items: NAV.filter((n) => ['/', '/home', '/history', '/favorites', '/live'].includes(n.to)) },
   { label: '其他', items: NAV.filter((n) => ['/config', '/about'].includes(n.to)) },
 ];
 
@@ -631,8 +621,7 @@ function AppShell() {
     //   独立播放器窗口走 isPlayerWin 的裸外壳（带 spw=1 标记），不会走到这里。
     { path: '/player', el: <PlayerPage /> },
     { path: '/live', el: <LivePage /> },
-    // ★ 2026-09-29：WebDAV 存储（只读）—— 浏览自建 OpenList/AList/Nextcloud 等并播放
-    { path: '/storage', el: <StoragePage /> },
+    // ★ 2026-10-20（用户要求「主菜单去掉存储」）：/storage 路由已删除（WebDAV 引擎层保留）
     { path: '/config', el: <ConfigPage /> },
     { path: '/about', el: <AboutPage /> },
   ];
@@ -685,12 +674,7 @@ function AppShell() {
         {disclaim && DisclaimerModal}
         <header className="ap-toolbar">
           <TitleBar variant="mac" />
-          <button className="ap-navbtn" title="返回" aria-label="返回" disabled={loc.pathname === '/'} onClick={goBack}>
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M9.8 3.4 5.2 8l4.6 4.6" />
-            </svg>
-          </button>
-          <span className="ap-toolbar-title">{pageTitle}</span>
+          {/* ★ 2026-10-20（用户要求「大果窗口顶部返回按钮、主菜单/正在播放字样没用，去掉」）：移除返回按钮与标题 */}
           <span className="ap-spacer" />
           <SearchPanel />
           <SourcePicker />

@@ -1160,20 +1160,8 @@ export default function HomePage({
             该源首页未提供推荐列表，已自动加载首个分类内容（点右上角「筛选」可切分类）。
           </div>
         )}
-        {/* ★ 2026-09-26：网盘类源 → 源内绑定入口（替代「源内配置源」：cookie 直接配在应用里） */}
-        {driveSrc && !aggMode && (
-          <div
-            className="banner"
-            style={{ borderLeftColor: boundDriveNames.length ? 'var(--accent-2)' : 'var(--warn)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}
-          >
-            <span>
-              该源用网盘取流：
-              {boundDriveNames.length ? `已绑定「${boundDriveNames.join('/')}」` : '尚未绑定网盘 Cookie'}
-              {boundDriveNames.length ? '' : '，绑定后本源才能列出/播放盘内资源'}。
-            </span>
-            <button className="primary" onClick={() => setBindOpen(true)}>网盘绑定</button>
-          </div>
-        )}
+        {/* ★ 2026-10-20（用户要求「点播页顶部绑定网盘那行提示经常出现，删掉」）：移除源内网盘绑定横幅 */
+        }
         {/* ★ 2026-09-29（用户要求）本地包「网页源」：该源首页是一张自带 Web UI 的 html → 独立窗口打开 */}
         {homePageUrl && !aggMode && (
           <div

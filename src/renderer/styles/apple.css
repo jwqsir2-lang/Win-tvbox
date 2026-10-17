@@ -81,19 +81,7 @@
 :root[data-theme='apple'] .ap-toolbar .srcpick,
 :root[data-theme='apple'] .ap-toolbar input { -webkit-app-region: no-drag; }
 :root[data-theme='apple'] .ap-spacer { flex: 1; }
-:root[data-theme='apple'] .ap-toolbar-title {
-  font-size: 15px; font-weight: 600; letter-spacing: -.01em; color: var(--text);
-  padding-left: 2px; white-space: nowrap;
-}
-/* 返回箭头（macOS 窗口导航） */
-:root[data-theme='apple'] .ap-navbtn {
-  all: unset; -webkit-app-region: no-drag; flex: none;
-  width: 26px; height: 26px; border-radius: 7px; cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center; color: #3a3a3c;
-}
-:root[data-theme='apple'] .ap-navbtn:hover { background: rgba(60, 60, 67, .08); }
-:root[data-theme='apple'] .ap-navbtn:active { background: rgba(60, 60, 67, .14); }
-:root[data-theme='apple'] .ap-navbtn:disabled { opacity: .28; }
+/* ★ 2026-10-20（用户要求「大果窗口顶部返回按钮、标题字样没用，去掉」）：ap-navbtn 返回箭头 与 ap-toolbar-title 标题的样式已随 JSX 一并删除 */
 
 /* ---- 标题栏（mac 交通灯变体）：只保留三个圆点 ---- */
 :root[data-theme='apple'] .titlebar.ap-titlebar {
