@@ -403,30 +403,22 @@ export default function PlayerPage() {
               onResolutionChange={setResolution}
               danmakuTitle={((init?.subtitleTitle || init?.title) || '').trim()}
               driveBindProvider={driveBind}
-              // ★ 2026-09-29：在播放器里绑定网盘成功后自动重新解析当前集（不必手动重开播放窗口）
               onDriveBound={() => {
                 setDriveBind(null);
                 if (init) void resolve(init, epIndex);
               }}
-              // ★ 历史续播：进度以历史记录为准（新直链与 playTime 旧键不匹配，须显式传入）
               startTime={init?.startTime || 0}
               canPrev={canPrev}
               canNext={canNext}
               onPrev={() => goEp(epIndex - 1)}
               onNext={() => goEp(epIndex + 1)}
               mini={mini}
-              // ★ 2026-10-08（用户拍板「内置官方构建」）：MPV 高兼容内核 —— 仅独立播放器窗口（transparent）可用
-              // ★ 2026-10-17：嵌入模式强制 HTML5（hls.js）—— 嵌入窗口非透明，mpv 无处透出，且旧版体验即 HTML5
               allowMpv={isStandalonePlayer}
-              // ★ 2026-09-30：图集源（每「集」= 一张图）/ 音乐源 → 图片浏览器 / 音乐播放器显示页码与封面
               epIndex={epIndex}
               epTotal={eps.length}
-              // ★ 2026-10-16（用户要求）：全屏播放器「选集」—— 传**本线路**的集列表（与 上一集/下一集 同一份）
-              //   从历史记录进入时 applyInit 会重新取详情把 eps 补全 ⇒ 这边同样可用
               episodes={eps}
               onPickEpisode={(idx) => goEp(idx)}
               cover={init?.meta?.pic}
-              // ★ 2026-10-08（用户要求）：跳过片头片尾 —— 资源键（与历史分组同口径）+ 本集键（原始 episode url）
               skipResourceKey={historyGroupKey({
                 sourceKey: init?.key,
                 vodId: init?.meta?.vodId ?? init?.meta?.id,
@@ -444,6 +436,30 @@ export default function PlayerPage() {
                  <button disabled={!canNext} onClick={() => goEp(epIndex + 1)}>下一集</button>
                </div>}
              </div>
+          )}
+          {/* ★ 2026-10-17（用户要求「播放页周围有集数选择区」）：视频右侧常驻选集栏，
+              直接点集切换，不必返回详情页。仅**嵌入模式**显示（独立窗口空间窄，且全屏内已有选集抽屉）。
+              refs: eps = init.episodes（本线路全集）；goEp = 换集并重新解析。 */}
+          {eps.length > 1 && (
+            <aside className="pwin-eps" aria-label="选集">
+              <div className="pwin-eps-h">
+                <span>选集</span>
+                <span className="muted" style={{ fontSize: 11 }}>{eps.length} 集</span>
+              </div>
+              <div className="pwin-eps-list">
+                {eps.map((ep2, i) => (
+                  <button
+                    key={`${i}:${ep2.url}`}
+                    type="button"
+                    className={`pwin-eps-i${i === epIndex ? ' cur' : ''}`}
+                    title={ep2.name}
+                    onClick={() => goEp(i)}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+            </aside>
           )}
         </div>
       </div>

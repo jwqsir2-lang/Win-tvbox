@@ -9,7 +9,7 @@ import { uiMem, schedulePersist, saveUiMemory, type HomeSearchMem } from '../lib
 import { getSessionSort, setSessionSort } from '../lib/sessionSort';
 import { makeStaleGuard } from '../lib/staleGuard';
 import { appendUniqueItems, pageSignature } from '../lib/listAppend';
-import { useWaterfall, setWaterfall as setWaterfallPref, useHomeFilters, setHomeFilters } from '../lib/uiPrefs';
+import { useWaterfall, setWaterfall as setWaterfallPref } from '../lib/uiPrefs';
 import { usePageActive } from '../lib/keepAlive';
 import { needsDriveBind } from '../../shared/driveProvider';
 import { useCovers } from '../lib/useCovers';
@@ -19,7 +19,14 @@ import { isSearchWindow, openSearchWindow } from '../lib/searchWin';
 
 type SortClassView = { id: string; name: string; flag?: string; filters?: FilterGroup[] };
 
-export default function HomePage({ onOpenDetail }: { onOpenDetail: (key: string, id: string, pic?: string, name?: string) => void }) {
+export default function HomePage({
+  onOpenDetail,
+  onQuickPlay,
+}: {
+  onOpenDetail: (key: string, id: string, pic?: string, name?: string) => void;
+  /** ★ 2026-10-17（用户要求「点条目直接播放」）：普通条目点击 → 直接进播放页放第 1 集（不经详情页） */
+  onQuickPlay: (key: string, id: string, pic?: string, name?: string) => void;
+}) {
   /**
    * ★ 2026-09-24（用户定稿）：点播页**不放源内搜索与换源入口** ——
    *   三套皮肤（网飝 / 哔哔 / 大果）的顶栏/工具栏都已自带「全源搜索 + 换源」，此处再放一遍是重复。
@@ -43,13 +50,6 @@ export default function HomePage({ onOpenDetail }: { onOpenDetail: (key: string,
    *   `content-visibility`（只渲染可视区）—— 见下方 VodCard 与 global.css。
    */
   const waterfall = useWaterfall();
-  /**
-   * ★ 2026-10-16（用户要求）：点播页「筛选」开关（右上角按钮）—— 默认**关**。
-   *   关：点播页**不显示任何分类**（源分类 + 预设分类 + 源筛选组全消失）；
-   *   开：**一次性展开全部**（点播页不再逐级展开；逐级展开只留给发现页）；
-   *   该偏好持久化（见 lib/uiPrefs）⇒ **换源 / 重启后仍保持**。
-   */
-  const filtersOpen = useHomeFilters();
   /** 瀑布加载单飞：一次只追加一页（哨兵在加载期间可能反复命中） */
   const wfBusyRef = useRef(false);
   /** 底部哨兵：可见（含预取边距）即加载下一页 */
@@ -511,11 +511,9 @@ export default function HomePage({ onOpenDetail }: { onOpenDetail: (key: string,
         options: classes.map((c) => ({ id: String(c.id), label: c.name })),
       },
     ];
-    // ★ 2026-10-16（用户要求）：点播页**不再逐级展开** —— 开启「筛选」时把**每一行都**给出去；
-    //   （逐级展开只留给发现页 —— 那边是它自己的 CascadeBar 调用，不受本处影响）
-    let prevChosen = true;
+    // ★ 2026-10-17（用户要求「分类常显」）：点播页**不再逐级展开**，筛选组也**一次性全部给出**
+    //   （此前由右上「筛选」按钮开关，现已去掉按钮 → 常显所有行）。
     for (const g of sourceGroups) {
-      if (!filtersOpen && !prevChosen) break;
       const v = filtersActive[g.key];
       out.push({
         key: `g:${g.key}`,
@@ -525,7 +523,6 @@ export default function HomePage({ onOpenDetail }: { onOpenDetail: (key: string,
         // 源自带的空值选项（「全部/不限」）语义等同本组 allLabel → 剔掉，避免两个「全部」
         options: g.value.filter((o) => o.v !== '').map((o) => ({ id: o.v, label: o.n })),
       });
-      prevChosen = v !== undefined;
     }
     return out;
   })();
@@ -1048,7 +1045,8 @@ export default function HomePage({ onOpenDetail }: { onOpenDetail: (key: string,
   const openItem = (it: VodItem): void => {
     if (it.tag === 'folder') { void openFolder(key, it.id, it.name); return; }
     if (isDoubanLikeSource(curSite)) { goAggSearch(it.name); return; }
-    onOpenDetail(key, it.id, it.pic || '', it.name);
+    // ★ 2026-10-17（用户要求「点条目直接播放」）：普通条目 → 直接进播放页放第 1 集
+    onQuickPlay(key, it.id, it.pic || '', it.name);
   };
   /**
    * ★ 2026-09-30（瀑布模式配套，防卡顿）：给 memo 卡片用的**稳定身份**回调 ——
@@ -1066,7 +1064,8 @@ export default function HomePage({ onOpenDetail }: { onOpenDetail: (key: string,
     if (it.tag === 'folder') { void openFolder(it.sourceKey, it.id, it.name); return; }
     const site = sites.find((s) => s.key === it.sourceKey);
     if (isDoubanLikeSource(site)) { goAggSearch(it.name); return; }
-    onOpenDetail(it.sourceKey, it.id, it.pic || '', it.name);
+    // ★ 2026-10-17（用户要求「点条目直接播放」）：聚合结果同款直出播放
+    onQuickPlay(it.sourceKey, it.id, it.pic || '', it.name);
   };
   /**
    * ★ 2026-09-26（用户要求）：**源内网盘绑定** —— 该源是否靠网盘 Cookie 取流（ext 带 Cloud-drive
@@ -1329,32 +1328,12 @@ export default function HomePage({ onOpenDetail }: { onOpenDetail: (key: string,
           )
         ) : (
           <>
-            {/* ★ 2026-10-16（用户要求）：点播页的分类/筛选条由右上角「筛选」按钮开关 ——
-                默认关（**所有分类都不显示**）；开启时**一次性展开全部**（不再逐级展开，逐级展开只留给发现页）。
-                按钮右下角在开启态出现对号；该偏好持久化 ⇒ 换源/重启后仍保持。 */}
-            {classes.length > 0 && !err && (
-              <div className="row home-filter-row">
-                <button
-                  type="button"
-                  className={`home-filter-btn${filtersOpen ? ' active' : ''}`}
-                  aria-pressed={filtersOpen}
-                  title={filtersOpen ? '隐藏源分类与筛选条件' : '显示源分类与筛选条件'}
-                  onClick={() => setHomeFilters(!filtersOpen)}
-                >
-                  {/* 筛选（漏斗）图标 —— 与「收藏」按钮同口径：内联 SVG，随按钮前景色 */}
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M3 4h18l-7.2 8.4V19l-3.6-2.2v-4.4z" />
-                  </svg>
-                  筛选
-                  {filtersOpen && <span className="hf-check" aria-hidden="true">✓</span>}
-                </button>
-              </div>
-            )}
-            {/* ★ 2026-10-15（用户要求「级联分类·保留源分类」）：分类条 + 该分类的筛选组。
-                发现页保留**逐级展开**；点播页只在「筛选」开启时出现，且展开全部（见 classLevels / onCascadePick） */}
-            {classes.length > 0 && !err && filtersOpen && <CascadeBar levels={classLevels} onPick={onCascadePick} />}
-            {/* 站级预设分类（SourceBean.categories）：映射到同名/同 id 分类则点击可切，否则只读展示（随「筛选」一并显隐） */}
-            {siteCats.length > 0 && !err && filtersOpen && (
+            {/* ★ 2026-10-17（用户要求「分类常显」）：删掉右上「筛选」按钮 ——
+                源的分类（电影/电视剧/动作片/纪录片…）+ 筛选组**常驻顶部**，直接点选切换，无开关。
+                （此前由按钮控制显隐 + 偏好持久化；现在一律常显，无需用户再多点一下。） */}
+            {classes.length > 0 && !err && <CascadeBar levels={classLevels} onPick={onCascadePick} />}
+            {/* 站级预设分类（SourceBean.categories）：映射到同名/同 id 分类则点击可切，否则只读展示 */}
+            {siteCats.length > 0 && !err && (
               <div className="row" style={{ marginBottom: 14 }}>
                 <span className="muted" style={{ fontSize: 11, marginRight: 6 }}>预设分类：</span>
                 {siteCats.map((c) => {

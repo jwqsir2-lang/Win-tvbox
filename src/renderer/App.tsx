@@ -37,6 +37,8 @@ import { isSearchWindow, bindSearchNav } from './lib/searchWin';
 import { useTheme } from './lib/theme';
 import { client } from './api/client';
 import type { Episode } from '../shared/types';
+// ★ 2026-10-17（用户要求「点条目直接播放」）：quickPlay 组「剧名 - 第N集」标题（与详情页同款归一）
+import { formatEpisodeLabel } from './lib/epName';
 
 /**
  * ★ 2026-10-08（用户要求「详情页独立窗口」）：详情窗口与主窗口共享同一份 localStorage 的 uiMem，
@@ -549,6 +551,37 @@ function AppShell() {
     });
   };
 
+  /**
+   * ★ 2026-10-17（用户要求「点条目直接播放」）：列表 / 搜索结果点条目 → **不再进详情页**，
+   *   后台取详情 → 取**首条线路**（引擎统一出口已把真直链线路排前，见 SourceViewModel.preferDirectMediaFlags）
+   *   → **第 1 集** → 直接进播放页（播放页内部解析 client.play，Description 页那一套错误上屏仍在）。
+   *   拿不到详情 / 没有可播集 → **回退详情页**（保留原有出口，不把用户卡死）。
+   *   文件夹条目 / 豆瓣类源在调用方已分流（openItem / openAggItem），不会走到这。
+   */
+  const quickPlay = (k: string, id: string, pic?: string, name?: string) => {
+    const base = (name || '').split(' - ')[0]?.trim() || '';
+    void client
+      .detail({ key: k, ids: [id] })
+      .then((d) => {
+        if (!d) return openDetail(k, id, pic, name);
+        // 真直链线路已排前 → flags[0] 即可播；取不到 episodes（故障/被墙）→ 回退详情页
+        const f = d.flags.length ? d.flags[0] : '';
+        const eps = f ? d.episodes[f] || [] : [];
+        if (!f || eps.length === 0) return openDetail(k, id, pic, name);
+        const label = formatEpisodeLabel(eps[0].name, 0);
+        onDetailPlay('', base ? `${base} - ${label}` : label, k, id, {
+          pic: pic || d.pic,
+          remarks: label,
+          title: d.name || base || undefined,
+          vodId: d.id,
+          episodes: eps,
+          epIndex: 0,
+          flag: f,
+        });
+      })
+      .catch(() => openDetail(k, id, pic, name));
+  };
+
   // ★ 2026-09-24：列表 → 详情的统一跳转（带上封面与片名）
   //   片名兜底：部分源（如「立播」）详情接口不返回 vod_name，详情页用它显示标题/查 TMDb
   // ★ 2026-10-08（用户要求）：外观开关打开时改在**独立窗口**打开（已开则复用换路由）；
@@ -583,12 +616,13 @@ function AppShell() {
   const routeDefs: Array<{ path: string; el: React.ReactElement }> = [
     // ★ 2026-09-24（用户定稿）：「发现」= 默认首页（软件打开即进这里）；「点播」= 源主页 /home
     { path: '/', el: <DiscoverPage /> },
-    { path: '/home', el: <HomePage onOpenDetail={openDetail} /> },
+    // ★ 2026-10-17（用户要求「点条目直接播放」）：列表 / 搜索结果点击 → quickPlay 直接进播放页（不再经详情页）
+    { path: '/home', el: <HomePage onOpenDetail={openDetail} onQuickPlay={quickPlay} /> },
     /**
      * ★ 2026-09-24：全源搜索专用路由 —— 详情页「演员/相关推荐」与发现页卡片点击后跳这里，
      * 由 HomePage 读 `?agg=<关键词>` 自动执行一次全源搜索。
      */
-    { path: '/search', el: <HomePage onOpenDetail={openDetail} /> },
+    { path: '/search', el: <HomePage onOpenDetail={openDetail} onQuickPlay={quickPlay} /> },
     { path: '/history', el: <HistoryPage /> },
     // ★ 2026-10-17（用户要求）：收藏列表（增删改查）
     { path: '/favorites', el: <FavoritesPage /> },
