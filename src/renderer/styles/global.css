@@ -524,21 +524,21 @@ tr.active-row { background: var(--accent-soft) !important; outline: 1px solid rg
 }
 .pwin-eps-nav button:hover:not(:disabled) { background: var(--bg-elev2); color: var(--accent); }
 .pwin-eps-nav button:disabled { opacity: .35; cursor: default; }
-/* ★ 信息区（评分/年代/演员）：网格下方、边框分隔，把选集栏下方空白利用起来 */
+/* ★ 信息区（年代/演员）：紧贴集数区下方 —— ★ 2026-10-17（用户要求「中间不要留太多空白」）去掉 margin-top:auto(原来把信息区顶到侧栏最底，集少时中间一大段空白)。
+   ★ 2026-10-17（用户反馈「只能看到年代，下面看不到」）：文字用 var(--text) 而非 var(--text-dim) ——
+   dim 灰在深色侧栏上只有 ~5:1,11.5px 小字看不清；提亮到接近正文色。 */
 .pwin-eps-info {
-  margin-top: auto; padding: 10px 12px 12px; border-top: 1px solid var(--border-soft);
-  display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; color: var(--text-dim);
+  padding: 10px 12px 12px; border-top: 1px solid var(--border-soft);
+  display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; color: var(--text);
 }
 .pwin-eps-row { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.pwin-eps-k { flex: 0 0 auto; color: var(--text-dim); opacity: .75; }
+.pwin-eps-k { flex: 0 0 auto; color: var(--text-dim); opacity: .9; }
 .pwin-eps-rating { color: #f5a623; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* 演员标签：可点（hover 主题色 + 下划虚线）；颜色同样提亮，否则深色皮肤下看不清 */
+.pwin-eps-actor { cursor: pointer; color: var(--text); font-weight: 500; border-bottom: 1px dashed transparent; transition: color .12s; }
+.pwin-eps-actor:hover { color: var(--accent); border-bottom-color: var(--accent); }
 .pwin-eps-cast { align-items: flex-start; }
 .pwin-eps-actors { display: flex; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
-.pwin-eps-actor {
-  cursor: pointer; color: var(--text-dim);
-  border-bottom: 1px dashed transparent; transition: color .12s;
-}
-.pwin-eps-actor:hover { color: var(--accent); border-bottom-color: var(--accent); }
 .vp-stage { position: absolute; inset: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;
   container-type: size; }
 .vp-ratio { width: 100%; height: 100%; min-height: 0; overflow: hidden; }
