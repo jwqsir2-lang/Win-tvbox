@@ -50,18 +50,20 @@ export default function TitleBar({ title = 'Win-Box', showMini = false, mini = f
 
   if (embedded) {
     // ★ 嵌入播放：只给「返回 + 标题」，无窗口控件、无拖拽（外壳顶栏负责窗口管理）
+    // ★ 2026-10-17（用户要求「返回按钮大一点、醒目」）：加宽 + 带「返回」文字 + 主题色高亮（见 .tb-back-emb）
     return (
       <div className="titlebar" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         {showBack && (
           <button
-            className="tb-btn tb-back"
+            className="tb-btn tb-back tb-back-emb"
             title="返回详情"
             aria-label="返回详情"
             onClick={() => onBack?.()}
           >
-            <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
-              <path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
+            <span>返回</span>
           </button>
         )}
         <div className="tb-title" title={title}>

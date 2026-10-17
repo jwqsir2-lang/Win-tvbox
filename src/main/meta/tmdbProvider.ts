@@ -117,7 +117,9 @@ export function parseTmdbSearch(json: unknown, type: 'movie' | 'tv', imageBase: 
       poster: posterPath ? `${base}${posterPath}` : '',
       overview,
       type,
-      // ★ 2026-09-24：带出 TMDB id —— 详情页「演职员/相关推荐」用它再查一次详情
+      // ★ 2026-10-17（用户要求「播放页信息区显示评分」）：TMDB vote_average（0~10）
+      ...(typeof r.vote_average === 'number' && r.vote_average > 0 ? { rating: r.vote_average } : {}),
+      // ★ 2026-09-24：带出 TMDB id —— 详情页「演职员/相关推荐」用它查一次详情
       ...(Number.isFinite(id) && id > 0 ? { tmdbId: id } : {}),
       ...(backdropPath ? { backdrop: `${root}/w1280${backdropPath}` } : {}),
     };

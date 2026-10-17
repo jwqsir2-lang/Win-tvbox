@@ -1003,3 +1003,28 @@
   :root[data-theme='apple'] .spot { padding: 26px 24px; }
   :root[data-theme='apple'] .spot-stage { width: 150px; height: 225px; }
 }
+
+/* ================= ★ 2026-10-17（用户要求「每个主题两种深浅不同的色系」）：深色版 =================
+   大果本色是浅色（macOS）；深色版 = macOS 深色外观（石墨底 + 系统蓝主色不变）。 */
+:root[data-theme='apple'][data-mode='dark'] {
+  --bg0: #14151a;
+  --bg-glass: rgba(28, 29, 34, .82);
+  --bg1: rgba(38, 39, 45, .78);
+  --bg-elev: rgba(44, 45, 52, .9);
+  --bg-elev2: #32333b;
+  --border: rgba(255, 255, 255, .16);
+  --border-soft: rgba(255, 255, 255, .1);
+  --text: #f2f3f5;
+  --text-dim: #98a0a8;
+  --accent-soft: rgba(0, 122, 255, .22);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .45);
+}
+:root[data-theme='apple'][data-mode='dark'] body {
+  background: linear-gradient(180deg, #1b1c21 0%, #14151a 46%, #101116 100%);
+  color: #f2f3f5;
+}
+:root[data-theme='apple'][data-mode='dark'] .app { background: #14151a; }
+:root[data-theme='apple'][data-mode='dark'] .app.pwin { background: var(--bg0); }
+:root[data-theme='apple'][data-mode='dark'] .app.pwin .main { background: var(--bg0); }
+/* 大果皮肤的磨砂玻璃浅色浮层 → 深色版转暗玻璃 */
+:root[data-theme='apple'][data-mode='dark'] .sidebar { background: linear-gradient(180deg, #1c1d23, #14151a); }

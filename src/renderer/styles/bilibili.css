@@ -589,3 +589,33 @@
   transform: translate(-50%, -50%) scale(1.08);
   background: rgba(251, 114, 153, .95);
 }
+
+/* ================= ★ 2026-10-17（用户要求「每个主题两种深浅不同的色系」）：深色版 =================
+   哔哔本色是浅色（白底蓝）；深色版 = B 站夜间模式同款（深灰蓝底 + 亮蓝/粉主色不变）。 */
+:root[data-theme='bilibili'][data-mode='dark'] {
+  --bg0: #0d0f12;
+  --bg-glass: #16191d;
+  --bg1: #17191c;
+  --bg-elev: #1c1f24;
+  --bg-elev2: #262a30;
+  --border: #2e323a;
+  --border-soft: rgba(255, 255, 255, .1);
+  --text: #e7e9ea;
+  --text-dim: #9aa0a6;
+  --accent-soft: rgba(0, 174, 236, .16);
+  --shadow: 0 2px 6px rgba(0, 0, 0, .4), 0 10px 24px -10px rgba(0, 0, 0, .5);
+  --b-page: #0d0f12;
+  --b-line: #2e323a;
+  --b-text2: #9aa0a6;
+  --b-dim: #6a7076;
+}
+:root[data-theme='bilibili'][data-mode='dark'] body { background: #0d0f12; color: #e7e9ea; }
+:root[data-theme='bilibili'][data-mode='dark'] .app { background: #0d0f12; }
+:root[data-theme='bilibili'][data-mode='dark'] .app.pwin { background: var(--bg0); }
+:root[data-theme='bilibili'][data-mode='dark'] .app.pwin .main { background: var(--bg0); }
+/* B 站皮肤里导航/卡片有不少浅色硬编码 → 深色版统一压暗 */
+:root[data-theme='bilibili'][data-mode='dark'] .nf-nav { background: rgba(19, 21, 24, .9); border-bottom-color: var(--b-line); }
+:root[data-theme='bilibili'][data-mode='dark'] .nf-link { color: #9aa0a6; }
+:root[data-theme='bilibili'][data-mode='dark'] .nf-link.active { color: var(--text); }
+:root[data-theme='bilibili'][data-mode='dark'] .db-filters,
+:root[data-theme='bilibili'][data-mode='dark'] .cascade { background: #17191c; }

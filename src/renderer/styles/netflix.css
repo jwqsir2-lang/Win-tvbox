@@ -647,3 +647,26 @@
 }
 :root[data-theme='netflix'] .vp-next { background: rgba(10, 10, 11, .93); border-radius: 6px; }
 :root[data-theme='netflix'] .vp-next button { background: var(--nf-red); }
+
+/* ================= ★ 2026-10-17（用户要求「每个主题两种深浅不同的色系」）：浅色版 =================
+   网飝本色是深色影院风；浅色版 = 米白纸面 + 霓虹红主色不变（font/字色反相、阴影减弱）。 */
+:root[data-theme='netflix'][data-mode='light'] {
+  --bg0: #f6f6f6;
+  --bg-glass: #fafafa;
+  --bg1: #ffffff;
+  --bg-elev: #ffffff;
+  --bg-elev2: #ececec;
+  --border: #e1e1e1;
+  --border-soft: rgba(0, 0, 0, .09);
+  --text: #141414;
+  --text-dim: #5b5b5b;
+  --accent-soft: rgba(229, 9, 20, .12);
+  --shadow: 0 2px 6px rgba(0, 0, 0, .07), 0 14px 34px rgba(0, 0, 0, .09);
+  --nf-surface: #ffffff;
+  --nf-surface-2: #ececec;
+  --nf-dim: #707070;
+}
+:root[data-theme='netflix'][data-mode='light'] body { background: #f6f6f6; color: #141414; }
+:root[data-theme='netflix'][data-mode='light'] .app { background: #f6f6f6; }
+:root[data-theme='netflix'][data-mode='light'] .app.pwin { background: var(--bg0); }
+:root[data-theme='netflix'][data-mode='light'] .app.pwin .main { background: var(--bg0); }

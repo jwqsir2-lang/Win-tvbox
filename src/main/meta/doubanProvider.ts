@@ -59,7 +59,9 @@ export function parseDoubanSearch(json: unknown): MetaHit[] {
     // 类型：豆瓣 target_type 有 movie/tv 两值（也落入 subject/thing 等不常用）
     const type = it.target_type === 'tv' ? 'tv' : 'movie';
     const overview = t.card_subtitle ? String(t.card_subtitle) : '';
-    out.push({ title, year: year as number | '', poster: cover, overview, type });
+    // ★ 2026-10-17（用户要求「播放页信息区显示评分」）：把豆瓣评分带出去（无评分的条目省略）
+    const rating = typeof t.rating?.value === 'number' ? t.rating.value : undefined;
+    out.push({ title, year: year as number | '', poster: cover, overview, type, ...(rating !== undefined ? { rating } : {}) });
   }
   return out;
 }

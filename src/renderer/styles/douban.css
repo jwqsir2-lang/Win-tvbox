@@ -1110,3 +1110,33 @@
 :root[data-theme='douban'] .vp-big:active { transform: translate(-50%, -50%) scale(.95); }
 /* 小窗模式：dock 收敛（避免大内边距挤占小窗空间） */
 :root[data-theme='douban'] .vplayer.vp-mini .vp-controls { padding: 10px 14px 12px; border-radius: 22px; }
+
+/* ================= ★ 2026-10-17（用户要求「每个主题两种深浅不同的色系」）：深色版 =================
+   大豆本色是浅色（暖纸白 + 豆绿）；深色版 = 墨绿夜色（深绿灰底 + 提亮的豆绿主色）。 */
+:root[data-theme='douban'][data-mode='dark'] {
+  --bg0: #141613;
+  --bg-glass: rgba(26, 29, 24, .93);
+  --bg1: rgba(38, 41, 34, .86);
+  --bg-elev: #262a22;
+  --bg-elev2: #2e332a;
+  --border: #3a4034;
+  --border-soft: rgba(255, 255, 255, .1);
+  --text: #e8ebe4;
+  --text-dim: #96a092;
+  --accent: #4db848;
+  --accent-strong: #6cc766;
+  --accent-soft: rgba(77, 184, 72, .18);
+  --accent-container: #2e4a2a;
+  --accent-2: #ff8a3d;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 12px 32px -14px rgba(0, 0, 0, .5);
+}
+:root[data-theme='douban'][data-mode='dark'] body {
+  background:
+    radial-gradient(1200px 420px at 12% -160px, rgba(77, 184, 72, .06), transparent 68%),
+    radial-gradient(900px 380px at 92% -150px, rgba(255, 138, 61, .05), transparent 70%),
+    var(--bg0);
+  color: var(--text);
+}
+:root[data-theme='douban'][data-mode='dark'] .app { background: var(--bg0); }
+:root[data-theme='douban'][data-mode='dark'] .app.pwin { background: var(--bg0); }
+:root[data-theme='douban'][data-mode='dark'] .app.pwin .main { background: var(--bg0); }

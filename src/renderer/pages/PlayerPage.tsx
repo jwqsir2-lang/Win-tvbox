@@ -14,6 +14,15 @@ import { restoreHistorySource } from '../lib/historySource';
 import type { PlayResult } from '../../shared/types';
 import DriveBindModal from '../components/DriveBindModal';
 import { playbackResultError } from '../../shared/playbackResult';
+// ★ 2026-10-17（用户要求「播放页信息区 + 收藏按钮」）：信息区数据/收藏/演员跳转搜索
+import { FAVORITES_EVENT, addFavorite, findFavorite, removeFavorite } from '../lib/favorites';
+import { openSearchWindow } from '../lib/searchWin';
+
+/**
+ * ★ 2026-10-17（用户要求「每页 30-40 集切换」）：选集网格每页按钮数（6 列 × 6 行方阵）。
+ *   多于一页时底部出现翻页按钮（上一页 / 页码 / 下一页）。
+ */
+const EP_PAGE_SIZE = 36;
 
 /**
  * ★ 2026-09-26：本页只在**独立播放器窗口**运行（主窗口无 /player 路由）。
@@ -62,6 +71,20 @@ export default function PlayerPage() {
   const [driveBind, setDriveBind] = useState<string | null>(null);
   // 小窗口模式（主进程改窗口尺寸后广播同步）
   const [mini, setMini] = useState(false);
+  /**
+   * ★ 2026-10-17（用户要求「集数区每页 30-40 集 + 翻页」）：选集分页。
+   *   每页 EP_PAGE_SIZE 个按钮（6×6 方阵），多的翻页；换资（init.key/vodId 变）回第 1 页。
+   */
+  const [epPage, setEpPage] = useState(0);
+  /**
+   * ★ 2026-10-17（用户要求「集数区下面放基本信息」）：年代 / 演员（**不放剧情**；评分已弃 —— 豆瓣 IP 风控拉不到）。
+   *   来源 = client.detail（源自己的 year / actor 字段）。
+   */
+  /** 信息区 state。★ 2026-10-17：用户取消评分需求（豆瓣 IP 风控拉不到），只留年代 + 演员。 */
+  const [info, setInfo] = useState<{ year?: string; actors: string[] }>({ actors: [] });
+  // ★ 2026-10-17（用户要求「播放页加收藏按钮」）：收藏状态与所属档案
+  const [favOn, setFavOn] = useState(false);
+  const [favMeta, setFavMeta] = useState<{ profileId: string; sourceName: string }>({ profileId: '', sourceName: '' });
   /**
    * ★ 2026-10-08（用户要求「把置顶按钮从播放器下方取消，做到上方最小化按钮旁边，播放器下方的功能区太拥挤了」）：
    *   置顶态上提到本页 —— 标题栏（最小化旁）与 mini 条共用同一份状态（按发起窗口生效，见 win:setAlwaysOnTop）。
@@ -253,6 +276,89 @@ export default function PlayerPage() {
   const canPrev = !!init && epIndex > 0;
   const canNext = !!init && epIndex < eps.length - 1;
 
+  // ★ 2026-10-17（用户要求「每页 30-40 集 + 翻页」）：分页派生量。换资源回第 1 页（见下方 effect）
+  const totalPages = Math.max(1, Math.ceil(eps.length / EP_PAGE_SIZE));
+  const epPageCur = Math.min(epPage, totalPages - 1);
+  const pageStart = epPageCur * EP_PAGE_SIZE;
+  const pageEps = eps.slice(pageStart, pageStart + EP_PAGE_SIZE);
+  useEffect(() => {
+    setEpPage(0);
+  }, [init?.key, init?.meta?.vodId, init?.meta?.id]);
+
+  /**
+   * ★ 2026-10-17（用户要求「集数区下面放基本信息」）：拿详情（年代/演员）+ 评分（豆瓣/TMDB）。
+   *   播放页打开后再后台并行拉，不阻塞解析播放；失败静默（信息区只是锦上添花）。
+   */
+  useEffect(() => {
+    const k = init?.key;
+    const vid = init?.meta?.vodId || init?.meta?.id;
+    const name = (init?.subtitleTitle || init?.title || '').trim().split(' - ')[0]?.trim() || '';
+    if (!k || !vid) return;
+    let alive = true;
+    // 档案信息（收藏要用）+ 详情（年代/演员）一起拉
+    void client
+      .cfgGet()
+      .then((cfg) => {
+        if (!alive) return;
+        setFavMeta({ profileId: cfg.activeProfileId, sourceName: cfg.sources.find((s) => s.key === k)?.name || '' });
+      })
+      .catch(() => undefined);
+    void client
+      .detail({ key: k, ids: [vid] })
+      .then((d) => {
+        if (!alive || !d) return;
+        setInfo((prev) => ({ ...prev, year: (d.year || '').trim() || undefined, actors: (d.actor || '').split(/[,，/、;；|]+/).map((s) => s.trim()).filter(Boolean).slice(0, 10) }));
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [init?.key, init?.meta?.vodId, init?.meta?.id, init?.title, init?.subtitleTitle]);
+
+  /**
+   * ★ 2026-10-17（用户要求「播放页加收藏按钮」）：同/跨窗口收藏变更即时同步。
+   *   直播/无源资源（无 key/vodId）不显示按钮（见渲染处条件），这里只管同步。
+   */
+  useEffect(() => {
+    const k = init?.key;
+    const vid = init?.meta?.vodId || init?.meta?.id;
+    const name = (init?.subtitleTitle || init?.title || '').trim() || curName;
+    const sync = (): void => setFavOn(!!k && !!vid && findFavorite({ sourceKey: k, vodId: vid, name, profileId: favMeta.profileId }) !== null);
+    sync();
+    window.addEventListener(FAVORITES_EVENT, sync);
+    return () => window.removeEventListener(FAVORITES_EVENT, sync);
+  }, [init?.key, init?.meta?.vodId, init?.meta?.id, init?.title, init?.subtitleTitle, favMeta.profileId, curName]);
+
+  /** 收藏 / 取消收藏（与详情页同款存储口径：同源同片同档一条） */
+  const toggleFavorite = async (): Promise<void> => {
+    const k = init?.key;
+    const vid = init?.meta?.vodId || init?.meta?.id;
+    if (!k || !vid) return;
+    const name = (init?.subtitleTitle || init?.title || '').trim().split(' - ')[0]?.trim() || curName;
+    const hit = findFavorite({ sourceKey: k, vodId: vid, name, profileId: favMeta.profileId });
+    if (hit) {
+      removeFavorite(hit.key);
+      setFavOn(false);
+      return;
+    }
+    addFavorite({
+      name,
+      sourceKey: k,
+      vodId: vid,
+      profileId: favMeta.profileId || undefined,
+      sourceName: favMeta.sourceName || undefined,
+      pic: init?.meta?.pic || undefined,
+      remarks: init?.meta?.remarks || undefined,
+      year: info.year || undefined,
+    });
+    setFavOn(true);
+  };
+
+  /** 点击演员 → 全源搜索 TA 的作品（与详情页同款：独立搜索窗口） */
+  const goActor = (actorName: string): void => {
+    void openSearchWindow(actorName).catch(() => undefined);
+  };
+
   // ★★ 进度回写历史（与 PlayPage 对称）：读「播放直链」的 playTime，写到「原始 episode url」历史键。
   //   历史键与直链键不同源 —— 只有这里定时回写，历史的 time 才会推进，下次续播才能 seek 新进度。
   const liveRef = useRef<{ raw: string; url: string; name: string; flag?: string; meta?: PlayerInitData['meta'] }>({ raw: '', url: '', name: '' });
@@ -439,26 +545,77 @@ export default function PlayerPage() {
           )}
           {/* ★ 2026-10-17（用户要求「播放页周围有集数选择区」）：视频右侧常驻选集栏，
               直接点集切换，不必返回详情页。仅**嵌入模式**显示（独立窗口空间窄，且全屏内已有选集抽屉）。
-              refs: eps = init.episodes（本线路全集）；goEp = 换集并重新解析。 */}
+              ★ 2026-10-17 迭代：每页 EP_PAGE_SIZE 个小按钮（翻页切换）；下方空白放
+              评分/年代/演员（演员可点击 → 全源搜索 TA 的作品），头部带收藏按钮。 */}
           {eps.length > 1 && (
             <aside className="pwin-eps" aria-label="选集">
               <div className="pwin-eps-h">
-                <span>选集</span>
-                <span className="muted" style={{ fontSize: 11 }}>{eps.length} 集</span>
+                <span>
+                  选集
+                  <span className="muted" style={{ fontSize: 11, marginLeft: 5 }}>{eps.length} 集</span>
+                </span>
+                {init?.key && (init.meta?.vodId || init.meta?.id) && (
+                  <button
+                    type="button"
+                    className={`pwin-eps-fav${favOn ? ' on' : ''}`}
+                    aria-pressed={favOn}
+                    title={favOn ? '取消收藏' : '加入收藏（在「收藏」页查看）'}
+                    onClick={() => { void toggleFavorite(); }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill={favOn ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" />
+                    </svg>
+                    {favOn ? '已收藏' : '收藏'}
+                  </button>
+                )}
               </div>
               <div className="pwin-eps-list">
-                {eps.map((ep2, i) => (
-                  <button
-                    key={`${i}:${ep2.url}`}
-                    type="button"
-                    className={`pwin-eps-i${i === epIndex ? ' cur' : ''}`}
-                    title={ep2.name}
-                    onClick={() => goEp(i)}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
+                {pageEps.map((ep2, i) => {
+                  const gi = pageStart + i;
+                  return (
+                    <button
+                      key={`${gi}:${ep2.url}`}
+                      type="button"
+                      className={`pwin-eps-i${gi === epIndex ? ' cur' : ''}`}
+                      title={ep2.name}
+                      onClick={() => goEp(gi)}
+                    >
+                      {gi + 1}
+                    </button>
+                  );
+                })}
               </div>
+              {/* 翻页：多于一页才出现（上一页 · 页码 · 下一页） */}
+              {totalPages > 1 && (
+                <div className="pwin-eps-nav">
+                  <button type="button" disabled={epPageCur === 0} onClick={() => setEpPage(epPageCur - 1)} title="上一页">‹</button>
+                  <span className="muted">{epPageCur + 1} / {totalPages}</span>
+                  <button type="button" disabled={epPageCur >= totalPages - 1} onClick={() => setEpPage(epPageCur + 1)} title="下一页">›</button>
+                </div>
+              )}
+              {/* 基本信息（用户要求「不要剧情介绍」，评分已弃）：年代 / 演员（可点） */}
+              {(info.year || info.actors.length > 0) && (
+                <div className="pwin-eps-info">
+                  {info.year && (
+                    <div className="pwin-eps-row">
+                      <span className="pwin-eps-k">年代</span>
+                      <span>{info.year}</span>
+                    </div>
+                  )}
+                  {info.actors.length > 0 && (
+                    <div className="pwin-eps-row pwin-eps-cast">
+                      <span className="pwin-eps-k">演员</span>
+                      <span className="pwin-eps-actors">
+                        {info.actors.map((a) => (
+                          <span key={a} className="pwin-eps-actor" title={`搜索 ${a} 的作品`} onClick={() => goActor(a)}>
+                            {a}
+                          </span>
+                        ))}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </aside>
           )}
         </div>

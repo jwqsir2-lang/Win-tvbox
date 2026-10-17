@@ -284,6 +284,8 @@ export interface MetaHit {
   poster: string; // 完整可引用 URL（https://image.tmdb.org/t/p/w342/...）
   overview: string;
   type: 'movie' | 'tv';
+  /** ★ 2026-10-17（用户要求「播放页信息区显示评分」）：豆瓣 rating.value / TMDB vote_average，无则省略 */
+  rating?: number;
   /** ★ 2026-09-24：TMDB 条目 id（详情页「演职员/相关推荐」用它再请求一次详情；无则说明是豆瓣/360 命中） */
   tmdbId?: number;
   /**

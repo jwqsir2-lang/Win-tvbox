@@ -7,9 +7,9 @@ import { sourceAvailability } from '../../engine/vod/sourceAvailability';
 import { EXT_TEMPLATES, validateExtJson } from '../../engine/config/extHelper';
 import { sourceKindInfo } from '../../engine/config/sourceKind';
 import type { AuditItem, SourceDebugReport } from '../../shared/types';
-import { applyTheme, currentTheme } from '../lib/theme';
+import { applyTheme, currentTheme, useThemeMode } from '../lib/theme';
 import { getShowDiscover, setShowDiscover, getMotionPref, setMotionPref, getNavMode, setNavMode, type MotionPref, type NavMode } from '../lib/uiPrefs';
-import { THEME_LABELS, type Theme } from '../lib/themeTokens';
+import { THEME_LABELS, THEME_MODE_LABELS, type Theme, type ThemeMode } from '../lib/themeTokens';
 import { DEFAULT_META_SETTINGS, type MetaSettings } from '../../shared/meta';
 import { DEFAULT_PLAYER_SETTINGS, type PlayerSettings, type MpvStatus } from '../../shared/player';
 import type { PluginView } from '../../shared/plugin';
@@ -84,6 +84,8 @@ export default function ConfigPage() {
   const [lastOk, setLastOk] = useState('');
   // 外观主题
   const [theme, setTheme] = useState<Theme>(() => currentTheme());
+  /** ★ 2026-10-17（用户要求「每个主题两种深浅」）：明暗模式 state（设置页切换深浅色系） */
+  const mode = useThemeMode();
   /** ★ 2026-09-30（用户要求）：是否展示「发现」页（默认展示；关掉后导航与默认落地页相应变化） */
   const [showDiscover, setShowDiscoverState] = useState<boolean>(() => getShowDiscover());
   /** ★ 2026-10-08（用户要求）：详情页是否单独窗口展示（默认关；切换即时生效，见 lib/detailWin.ts） */
@@ -1863,6 +1865,25 @@ export default function ConfigPage() {
               onClick={() => { setTheme(t); applyTheme(t); }}
             >
               {label}{theme === t ? ' ✓' : ''}
+            </button>
+          ))}
+        </div>
+        {/* ★ 2026-10-17（用户要求「每个主题设计两种深浅不同的色系」）：
+            深/浅两套配色独立于主题切换 —— 换皮肤不改变当前明暗偏好。 */}
+        <div className="row" style={{ marginTop: 10, marginBottom: 6 }}>
+          <span className="muted" style={{ fontWeight: 600 }}>色系深浅</span>
+        </div>
+        <div className="theme-switcher" role="radiogroup" aria-label="色系深浅">
+          {(Object.entries(THEME_MODE_LABELS) as [ThemeMode, string][]).map(([m, label]) => (
+            <button
+              key={m}
+              type="button"
+              role="radio"
+              aria-checked={mode === m}
+              className={`tag ${mode === m ? 'active' : ''}`}
+              onClick={() => applyTheme(theme, m)}
+            >
+              {label}{mode === m ? ' ✓' : ''}
             </button>
           ))}
         </div>
