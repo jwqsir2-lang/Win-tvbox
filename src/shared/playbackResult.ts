@@ -35,6 +35,12 @@ export function directPlayUrlError(raw: string): string {
   return '';
 }
 
+/** 媒体直链扩展名判定（用于详情页默认线路排序：share 假直链靠后）。 */
+const MEDIA_EXT = /\.(?:m3u8|mp4|flv|ts|mkv|avi|mov|webm|m4s|mpd)(?:[?#]|$)/i;
+export function isDirectMediaUrl(raw: string): boolean {
+  return MEDIA_EXT.test((raw || '').trim());
+}
+
 export function playbackResultError(result: Pick<PlayResult, 'parse' | 'url' | 'message'>): string {
   if (result.parse !== 0) return result.message || '该播放地址需要网页解析/嗅探，自动解析未取得直连地址';
   const error = directPlayUrlError(result.url);

@@ -10,6 +10,7 @@ import { classFiltersFor, normalizeClassList, type SortClass } from '../parse/Mo
 import { SpiderFactory, sourceTimeoutMs, type SpiderFactoryOptions } from '../spider/SpiderFactory';
 import type { Spider } from '../spider/Spider';
 import { parseEpisodes } from './VodNormalizer';
+import { isDirectMediaUrl } from '../../shared/playbackResult';
 import { normalizeVodId, normalizeVodPic, splitUrlHeaders } from './itemNormalize';
 import { fixDetailFields } from './detailFix';
 import { SourceProblemError, SOURCE_PROBLEM_TEXT } from '../spider/errors';
@@ -505,6 +506,14 @@ export class SourceViewModel {
         flags,
         episodes,
       };
+      // ★ 2026-10-17：默认线路排序 —— 选集 URL 命中媒体扩展名（.m3u8/.mp4/…）的线路优先。
+      //   起因：ffzy 等苹果 CMS 站首条线路常是 share 网页假直链（如 /share/xxx，无扩展名），
+      //   详情页默认选第一条 → 播放器拿到网页 URL 播不了；真直链线路（ffm3u8）被排在后面。
+      //   全部线路都是非直链（蜘蛛源 episodes 是选集 ID）时保持原序，行为不变。
+      const directFlags = flags.filter((f) => episodes[f]?.some((e) => isDirectMediaUrl(e.url)));
+      if (directFlags.length && directFlags.length < flags.length) {
+        detail.flags = [...directFlags, ...flags.filter((f) => !directFlags.includes(f))];
+      }
       // ★ 2026-09-24：字段错位纠偏（如「立播」源把地区名塞进导演/演员、类型串塞进年份/地区）
       return fixDetailFields(detail);
     } catch {

@@ -64,37 +64,42 @@ jobs:
 
       - name: List artifacts
         shell: bash
-        run: ls -la release1.21.8/ || true
+        run: ls -la release/ || true
 
-      - name: Upload to Release（网页可直接下载）
+      - name: 发布正式版本 Release（网页可直接下载）
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          REL=build-latest
-          EXE=$(ls release1.21.8/*.exe | head -1)
-          echo "installer: $EXE"
-          # release 不存在则建（指向 main，标记预发布，不抢正式 release）
-          gh release create "$REL" "$EXE" \
-            --title "Win-Box 内嵌播放版" \
-            --notes "自动构建：当前窗口内嵌播放 + 旧版内置源。
-          从本仓库 main 分支构建，种子二进制来自 seed release。
-          下载 exe 直接安装。" \
-            --prerelease --target main || \
-          gh release upload "$REL" "$EXE" --clobber
+          VER=$(node -p "require('./package.json').version")
+          TAG="v$VER"
+          EXE=$(ls release/*.exe | head -1)
+          echo "version=$VER tag=$TAG installer=$EXE"
+          # 正式 Release（非预发布）；tag 已存在则覆盖资产
+          gh release create "$TAG" "$EXE" \
+            --title "Win-Box v$VER（内嵌播放版）" \
+            --notes "## v$VER
+
+          - 当前窗口内嵌播放（不再弹浮动窗口，hls.js 内核）
+          - 旧版 5 个苹果 CMS 采集站内置，首次启动即可用
+          - ★ 修复默认线路选中 share 假直链导致无法播放的问题（真直链线路优先）
+          - 从本仓库 main 分支构建" \
+            --target main || \
+          gh release upload "$TAG" "$EXE" --clobber
+          echo "::notice::Release 已发布：https://github.com/jwqsir2-lang/Win-tvbox/releases/tag/$TAG"
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: Win-Box-installer
-          path: release1.21.8/*.exe
+          path: release/*.exe
           if-no-files-found: warn
       - name: Upload portable dir
         uses: actions/upload-artifact@v4
         with:
           name: Win-Box-portable
           path: |
-            release1.21.8/win-unpacked/**
-            !release1.21.8/win-unpacked/**/*.pak
+            release/win-unpacked/**
+            !release/win-unpacked/**/*.pak
           if-no-files-found: warn
