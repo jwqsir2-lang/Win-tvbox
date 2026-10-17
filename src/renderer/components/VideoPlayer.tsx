@@ -1510,6 +1510,15 @@ export default function VideoPlayer(props: VideoPlayerProps) {
         //   而不是一见 fatal 就把错误甩给用户。
         const hls = new Hls({
           enableWorker: true,
+          // ★ 2026-10-17（用户报「播到一半经常弹出缓存中」）：缓冲策略整体加大。
+          //   默认 maxBufferLength=20s：拉片速度只要短暂低于播放码率（跨境 CDN 高峰、
+          //   分片服务器抖动），20 秒老本吃完必 stall → 反复「缓存中」。
+          //   同局域网电视机 APK 走 ExoPlayer，默认 minBuffer 50s 且更激进，故同网络不卡。
+          //   ★ 点播拉到 120s 前瞻：播放空隙提前下足老本，抖动就吃缓冲而非卡用户。
+          maxBufferLength: 120,
+          maxMaxBufferLength: 600,
+          // 点播关低延迟模式：它会主动压缓冲换低延迟，点播不需要
+          lowLatencyMode: false,
           // The local compatibility endpoint may need to seek/transcode a
           // large remote file before its first 6-second segment is ready.
           // Match its bounded 180s wait instead of hls.js's 20s default.
@@ -1542,6 +1551,8 @@ export default function VideoPlayer(props: VideoPlayerProps) {
           const live = !!info?.details?.live;
           liveKindRef.current = live;
           setIsLive(live);
+          // ★ 2026-10-17：直播流不能要 120s 前瞻（会落后最新画面两分钟）→ 回到 30s
+          if (live) hls.config.maxBufferLength = 30;
         });
         // ★ 2026-10-17（用户要求「音轨设置」）：HLS 音轨表更新 / 切换完成 → 刷新列表与高亮
         hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => syncHlsAudio());

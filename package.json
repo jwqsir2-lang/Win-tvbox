@@ -1,6 +1,6 @@
 {
   "name": "win-box",
-  "version": "1.24.1",
+  "version": "1.24.2",
   "private": true,
   "description": "Win-Box (CatVod 引擎) 的 Windows 桌面移植版 — 导入源规则与安卓版保持一致",
   "type": "module",
