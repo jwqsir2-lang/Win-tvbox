@@ -1145,7 +1145,55 @@ export default function ConfigPage() {
         )}
       </div>
 
-      {/* 2) 我的源列表（可折叠） */}
+      {/* 2) 订阅地址管理（★ 2026-10-18 用户要求：订阅地址要能删。此前「配置档案」被界面精简删掉后，
+         没有地方再列出/删除一份订阅（一个订阅地址 + 它的源）；这里轻量恢复：列出已保存订阅，可切换、可删除。
+         删除 = 整份订阅（地址 + 里面的源）一并删除（UserConfigManager.deleteProfile 的既有语义）。 */}
+      <div className="card" id="cfg-subs" style={{ padding: 12, marginBottom: 16 }}>
+        <div className="row" style={{ marginBottom: 8 }}>
+          <span className="muted" style={{ fontWeight: 600 }}>订阅地址管理（{cfg?.profiles?.length ?? 0}）</span>
+        </div>
+        {(cfg?.profiles?.length ?? 0) === 0 ? (
+          <div className="empty" style={{ padding: 16 }}>暂无已保存订阅；用上方「从地址导入」导入后，这里会列出它并可删除。</div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ color: 'var(--text-dim)', textAlign: 'left' }}>
+                <th style={{ padding: 6, borderBottom: '1px solid var(--border)' }}>名称</th>
+                <th style={{ padding: 6, borderBottom: '1px solid var(--border)' }}>订阅地址</th>
+                <th style={{ padding: 6, borderBottom: '1px solid var(--border)' }}>源数</th>
+                <th style={{ padding: 6, borderBottom: '1px solid var(--border)', width: 150 }}>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cfg!.profiles.map((p) => {
+                const isActive = p.id === cfg!.activeProfileId;
+                return (
+                  <tr key={p.id} style={{ opacity: isActive ? 1 : 0.72 }}>
+                    <td style={{ padding: 6, borderBottom: '1px solid var(--border)' }}>
+                      <div>{p.name}{isActive && <span style={{ marginLeft: 6, color: 'var(--accent-2)' }}>当前</span>}</div>
+                    </td>
+                    <td style={{ padding: 6, borderBottom: '1px solid var(--border)', color: 'var(--text-dim)', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.apiUrl || '手动 / 内置'}>
+                      {p.apiUrl || '手动 / 内置'}
+                    </td>
+                    <td style={{ padding: 6, borderBottom: '1px solid var(--border)' }}>{p.sourceCount}</td>
+                    <td style={{ padding: 6, borderBottom: '1px solid var(--border)' }}>
+                      <div className="row" style={{ flexWrap: 'nowrap' }}>
+                        <button disabled={busy || isActive} title={isActive ? '当前订阅' : '切换到这份订阅'} onClick={() => void activateProfile(p.id)}>切换</button>
+                        <button disabled={busy} onClick={() => void delProfile(p.id, p.name)} style={{ color: 'var(--danger)' }}>删除</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+        <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+          每份订阅对应一个地址及其多个源；删除 = 连地址带源一起从应用移除（你导入的原始文件不被改动）。
+        </div>
+      </div>
+
+      {/* 3) 我的源列表（可折叠） */}
       <details className="card" id="cfg-sources" open style={{ padding: 12, marginBottom: 16 }}>
         <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
           我的源列表（{sources.length}）
